@@ -1,4 +1,4 @@
-# 🦀 wait_not_await
+<h1 align="center">🦀 wait_not_await</h1>
 
 Simple awaiter implementation in Rust
 
