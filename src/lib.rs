@@ -2,12 +2,13 @@ use std::thread;
 use std::sync::mpsc;
 use std::time::Duration;
 
-pub mod tests;
+mod tests;
 
 pub struct Await<F> {
-    recv: mpsc::Receiver<F>,
     done: bool,
-    result: Option<F>
+    result: Option<F>,
+    then_sender: mpsc::Sender<Box<dyn Fn(&F) + Send>>,
+    result_receiver: mpsc::Receiver<F>
 }
 
 impl<F: Send + 'static> Await<F> {
@@ -29,49 +30,57 @@ impl<F: Send + 'static> Await<F> {
     ///     println!("Result: {}", result);
     /// }
     /// ```
-    pub fn new<T>(task: T) -> Await<F> where T: Fn() -> F + Send + 'static {
-        let (sender, receiver) = mpsc::channel() as (mpsc::Sender<F>, mpsc::Receiver<F>);
+    pub fn new<T: Fn() -> F + Send + 'static>(task: T) -> Await<F> {
+        let (result_sender, result_receiver) = mpsc::channel::<F>();
+        let (then_sender, then_receiver) = mpsc::channel::<Box<dyn Fn(&F) + Send>>();
 
         let awaiter = Await {
-            recv: receiver,
             done: false,
-            result: None
+            result: None,
+            then_sender,
+            result_receiver
         };
 
         thread::spawn(move || {
-            sender.send(task());
+            let result = task();
+
+            while let Ok(callable) = then_receiver.try_recv() {
+                callable(&result);
+            }
+
+            result_sender.send(result);
         });
 
         awaiter
     }
 
     /// Awaiter result
-    pub fn result(&mut self) -> &Option<F> {
+    pub fn result(&mut self) -> Option<&F> {
         if !self.done {
-            if let Ok(result) = self.recv.try_recv() {
+            if let Ok(result) = self.result_receiver.try_recv() {
                 self.done = true;
                 self.result = Some(result);
             }
         }
-        
-        &self.result
+
+        self.result.as_ref()
     }
 
     /// Wait for execution result
     /// 
     /// If `timeout = None`, then this function will wait
     /// until the inner function will not return its result
-    pub fn wait(&mut self, timeout: Option<Duration>) -> &Option<F> {
+    pub fn wait(&mut self, timeout: Option<Duration>) -> Option<&F> {
         if !self.done {
             match timeout {
                 Some(timeout) => {
-                    if let Ok(result) = self.recv.recv_timeout(timeout) {
+                    if let Ok(result) = self.result_receiver.recv_timeout(timeout) {
                         self.done = true;
                         self.result = Some(result);
                     }
                 },
                 None => {
-                    if let Ok(result) = self.recv.recv() {
+                    if let Ok(result) = self.result_receiver.recv() {
                         self.done = true;
                         self.result = Some(result);
                     }
@@ -79,6 +88,28 @@ impl<F: Send + 'static> Await<F> {
             }
         }
 
-        &self.result
+        self.result.as_ref()
+    }
+
+    /// Specify callback to be executed when the task will be completed
+    /// 
+    /// ## Example:
+    /// 
+    /// ```
+    /// use wait_not_await::Await;
+    /// use std::time::Duration;
+    /// 
+    /// let task = Await::new(move || {
+    ///     std::thread::sleep(Duration::from_secs(3));
+    /// 
+    ///     "Hello, Wolrd!".to_string()
+    /// });
+    /// 
+    /// task.then(move |result| {
+    ///     println!("Task result: {}", result);
+    /// });
+    /// ```
+    pub fn then<C: Fn(&F) + Send + 'static>(&self, callable: C) -> bool {
+        self.then_sender.send(Box::new(callable)).is_ok()
     }
 }

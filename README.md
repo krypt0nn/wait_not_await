@@ -8,7 +8,6 @@ Simple awaiter implementation in Rust
 
 ```rs
 use std::time::Duration;
-
 use wait_not_await::Await;
 
 let mut awaiter = Await::new(move || {
@@ -26,7 +25,6 @@ if let Some(result) = awaiter.wait(None) {
 
 ```rs
 use std::time::Duration;
-
 use wait_not_await::Await;
 
 fn async_hello_world() -> Await<String> {
@@ -40,11 +38,27 @@ fn async_hello_world() -> Await<String> {
 println!("{}", async_hello_world().wait(None).unwrap());
 ```
 
+### Await result handling
+
+```rs
+use std::time::Duration;
+use wait_not_await::Await;
+
+let awaiter = Await::new(move || {
+    std::thread::sleep(Duration::from_secs(3));
+
+    "Hello, Wolrd!".to_string()
+});
+
+awaiter.then(move |result| {
+    println!("Task result: {}", result);
+});
+```
+
 ### Await loop with result
 
 ```rs
 use std::time::Duration;
-
 use wait_not_await::Await;
 
 fn async_hello_world() -> Await<String> {

@@ -1,6 +1,6 @@
 [package]
 name = "wait_not_await"
-version = "0.1.0"
+version = "0.2.0"
 description = "Simple awaiter implementation"
 authors = ["Nikita Podvirnyy <suimin.tu.mu.ga.mi@gmail.com>"]
 license = "MIT"
