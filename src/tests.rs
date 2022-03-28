@@ -55,3 +55,20 @@ fn test_then() {
 
     assert_eq!("Hello, World!".to_string(), recv.recv_timeout(Duration::from_millis(1500)).unwrap());
 }
+
+#[test]
+fn test_mut() {
+    let mut result = "Is not completed yet";
+
+    let mut awaiter = Await::new(move || {
+        std::thread::sleep(Duration::from_secs(1));
+
+        result = "Hello, World!";
+
+        result
+    });
+
+    assert_eq!("Is not completed yet", result);
+    assert_eq!(&"Hello, World!", awaiter.wait(None).unwrap());
+    assert_eq!("Is not completed yet", result);
+}

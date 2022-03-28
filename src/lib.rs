@@ -7,7 +7,7 @@ mod tests;
 pub struct Await<F> {
     done: bool,
     result: Option<F>,
-    then_sender: mpsc::Sender<Box<dyn Fn(&F) + Send>>,
+    then_sender: mpsc::Sender<Box<dyn FnOnce(&F) + Send>>,
     result_receiver: mpsc::Receiver<F>
 }
 
@@ -30,9 +30,9 @@ impl<F: Send + 'static> Await<F> {
     ///     println!("Result: {}", result);
     /// }
     /// ```
-    pub fn new<T: Fn() -> F + Send + 'static>(task: T) -> Await<F> {
+    pub fn new<T: FnOnce() -> F + Send + 'static>(task: T) -> Await<F> {
         let (result_sender, result_receiver) = mpsc::channel::<F>();
-        let (then_sender, then_receiver) = mpsc::channel::<Box<dyn Fn(&F) + Send>>();
+        let (then_sender, then_receiver) = mpsc::channel::<Box<dyn FnOnce(&F) + Send>>();
 
         let awaiter = Await {
             done: false,
@@ -109,7 +109,7 @@ impl<F: Send + 'static> Await<F> {
     ///     println!("Task result: {}", result);
     /// });
     /// ```
-    pub fn then<C: Fn(&F) + Send + 'static>(&self, callable: C) -> bool {
+    pub fn then<C: FnOnce(&F) + Send + 'static>(&self, callable: C) -> bool {
         self.then_sender.send(Box::new(callable)).is_ok()
     }
 }
