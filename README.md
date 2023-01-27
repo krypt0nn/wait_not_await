@@ -81,6 +81,6 @@ while let None = awaiter.result() {
 println!("{}", awaiter.result().unwrap());
 ```
 
-Author: [Nikita Podvirnyy](https://vk.com/technomindlp)
+Author: [Nikita Podvirnyy](https://github.com/krypt0nn)
 
 Licensed under [MIT](LICENSE)
